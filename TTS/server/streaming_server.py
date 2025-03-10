@@ -1,38 +1,47 @@
-import requests
-import simpleaudio as sa
-from io import BytesIO
-from pydub import AudioSegment
-from pydub.playback import play
+from flask import Flask, Response, request, stream_with_context, jsonify
+from TTS.api import TTS
+import io
+import os
 
-# API Endpoint
-API_URL = "http://localhost:5000/v1/audio/speech"
+app = Flask(__name__)
 
-# OpenAI-compatible JSON request
-DATA = {
-    "model": "tts-1",  # Placeholder for compatibility
-    "input": "This is a real-time streaming test using Coqui XTTS2.",
-    "voice": "alloy",  # Placeholder, Coqui doesn't use predefined voices
-    "stream": True  # Enable streaming
-}
+# Load XTTS2 model (ensure it's installed)
+tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False).to("cpu")
 
-# Send POST request with streaming enabled
-response = requests.post(API_URL, json=DATA, stream=True)
-
-if response.status_code == 200:
-    audio_buffer = BytesIO()
+@app.route('/v1/audio/speech', methods=['POST'])
+def generate_speech():
+    """
+    OpenAI-compatible TTS API using Coqui XTTS2
+    """
+    # Parse request data
+    data = request.json
+    text = data.get("input", "Hello, this is a streaming text-to-speech service.")
+    voice = data.get("voice", "default")  # XTTS2 doesn't have predefined voices
+    model = data.get("model", "tts-1")  # Placeholder for compatibility
+    stream = data.get("stream", False)  # Boolean flag for streaming
     
-    # Read streamed chunks and write to buffer
-    for chunk in response.iter_content(chunk_size=1024):
-        if chunk:
-            audio_buffer.write(chunk)
-    
-    # Convert buffer to an audio segment
-    audio_buffer.seek(0)
-    audio_segment = AudioSegment.from_wav(audio_buffer)
-    
-    # Play the streamed audio
-    print("Playing streamed XTTS2 audio...")
-    play(audio_segment)
+    # Validate input
+    if not text:
+        return jsonify({"error": "Missing 'input' parameter"}), 400
 
-else:
-    print("Error:", response.status_code, response.text)
+    output_path = "temp_output.wav"
+
+    # Generate speech file
+    tts.tts_to_file(text=text, speaker_wav=None, file_path=output_path)
+
+    def audio_stream():
+        """
+        Stream the generated audio file in chunks
+        """
+        with open(output_path, "rb") as audio_file:
+            while chunk := audio_file.read(1024):  # Read in 1 KB chunks
+                yield chunk
+
+    # If stream=True, stream the response; otherwise, return full file
+    if stream:
+        return Response(stream_with_context(audio_stream()), content_type="audio/wav")
+    else:
+        return Response(open(output_path, "rb"), content_type="audio/wav")
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=5000, debug=True)
