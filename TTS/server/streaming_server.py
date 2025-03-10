@@ -2,11 +2,12 @@ from flask import Flask, Response, request, stream_with_context, jsonify
 from TTS.api import TTS
 import io
 import os
-
+import torch
 app = Flask(__name__)
 
 # Load XTTS2 model (ensure it's installed)
-tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False).to("cpu")
+device = "cuda" if torch.cuda.is_available() else "cpu"
+tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", progress_bar=False).to(device)
 
 @app.route('/v1/audio/speech', methods=['POST'])
 def generate_speech():
@@ -27,7 +28,7 @@ def generate_speech():
     output_path = "temp_output.wav"
 
     # Generate speech file
-    tts.tts_to_file(text=text, speaker_wav=None, file_path=output_path)
+    tts.tts_to_file(text=text, speaker="Kumar Dahl", language="en",speaker_wav=None, split_sentences=True, file_path=output_path)
 
     def audio_stream():
         """
