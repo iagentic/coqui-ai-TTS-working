@@ -37,7 +37,8 @@ def generate_speech():
 
     # Generate speech to a WAV buffer
     wav_buffer = io.BytesIO()
-    tts.tts_to_file(text=text, speaker="Kumar Dahl", language="en", speaker_wav=None, split_sentences=True, file_path=wav_buffer)
+    style_wav = request.headers.get("style-wav") or request.values.get("style_wav", "")
+    tts.tts_to_file(text=text, speaker="Barbora MacLean", language="en", style_wav=style_wav, speaker_wav=None, split_sentences=True, file_path=wav_buffer)
     wav_buffer.seek(0)
 
     # Convert WAV to desired format
