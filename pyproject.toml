@@ -57,6 +57,7 @@ classifiers = [
 dependencies = [
     # Core
     "pydub",
+    "tiktoken",
     "numpy>=1.25.2,<2.0",
     "cython>=3.0.0",
     "scipy>=1.11.2",
